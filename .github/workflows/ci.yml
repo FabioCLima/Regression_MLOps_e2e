@@ -30,10 +30,13 @@ jobs:
         run: uv sync --frozen --all-groups
 
       - name: Lint
-        run: uv run ruff check src pipelines tests
+        run: uv run ruff check app.py src pipelines tests
 
       - name: Test
         run: uv run pytest -q
 
       - name: Build API Docker image
         run: docker build -f Dockerfile.api -t regression-mlops-e2e-api:ci .
+
+      - name: Build Streamlit Docker image
+        run: docker build -f Dockerfile.streamlit -t regression-mlops-e2e-frontend:ci .

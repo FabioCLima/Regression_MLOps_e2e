@@ -6,6 +6,9 @@ on:
     paths-ignore:
       - "docs/**"
       - "README.md"
+      - "app.py"
+      - "Dockerfile.streamlit"
+      - ".streamlit/**"
   workflow_dispatch:
 
 permissions:
