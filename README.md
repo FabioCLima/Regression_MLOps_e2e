@@ -1,47 +1,268 @@
 # Regression MLOps E2E
 
-Projeto educacional de engenharia de machine learning para um problema de
-regressão imobiliária. A ideia é construir um fluxo ponta a ponta com boas
-práticas de MLOps: dados versionados, pipelines separados, logs, testes,
-feature engineering reproduzível, treinamento, tuning, inferência e preparação
-para deploy.
+[![CI](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/ci.yml/badge.svg)](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/ci.yml)
+[![CD API](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/cd.yml/badge.svg)](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/cd.yml)
+[![CD Frontend](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/cd-frontend.yml/badge.svg)](https://github.com/FabioCLima/Regression_MLOps_e2e/actions/workflows/cd-frontend.yml)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-Este projeto não é apenas um script de treino. Ele foi organizado para servir
-como guia de estudo para um engenheiro de ML que quer entender como um pipeline
-evolui de código local para uma arquitetura mais próxima de produção.
+End-to-end MLOps pipeline for US real estate price prediction (2012–2022).  
+Covers every phase from raw data to production serving on AWS, with automated CI/CD.
 
-## O Que Este Projeto Faz
+**Live demo:**
 
-Fluxo principal:
+- Frontend: [Streamlit on AWS ECS Fargate](http://reg-mlops-fe-alb-1328758802.us-east-1.elb.amazonaws.com)
+- API docs: [FastAPI /docs on AWS ECS Fargate](http://regression-mlops-e2e-alb-1975146041.us-east-1.elb.amazonaws.com/docs)
 
-```text
-raw dataset
-  -> split temporal
-  -> preprocessing
-  -> feature engineering
-  -> treinamento de modelos candidatos
-  -> seleção do melhor modelo
-  -> fine tuning
-  -> inferência
+---
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph ML_Pipeline["ML Pipeline (local)"]
+        RAW[HouseTS.csv] --> DP[data-pipeline]
+        DP --> FP[feature-pipeline]
+        FP --> TP[training-pipeline]
+        TP --> TUN[tuning-pipeline]
+    end
+
+    subgraph Tracking["W&B Experiment Tracking"]
+        WB[Metrics + Artifact versions]
+    end
+
+    subgraph Storage["AWS S3"]
+        S3[models/ + data/processed/]
+    end
+
+    TUN -->|log metrics| Tracking
+    TUN -->|upload artifacts| Storage
+
+    subgraph CICD["GitHub Actions"]
+        CI_W[CI: lint + test + docker build]
+        CD_API_W[CD API: ECR push → ECS deploy]
+        CD_FE_W[CD Frontend: ECR push → ECS deploy]
+    end
+
+    subgraph AWS["AWS us-east-1"]
+        ECR_A[ECR: api image]
+        ECR_F[ECR: frontend image]
+        ALB_A[ALB :80]
+        ALB_F[ALB :80]
+        subgraph Fargate["ECS Fargate"]
+            API[FastAPI :8000]
+            FE[Streamlit :8501]
+        end
+        API -->|startup download| Storage
+    end
+
+    CD_API_W --> ECR_A --> API
+    CD_FE_W --> ECR_F --> FE
+    ALB_A --> API
+    ALB_F --> FE
+    FE -->|POST /predict| ALB_A
+
+    USER[User] --> ALB_F
+    DEV[Developer] --> ALB_A
 ```
 
-Principais ferramentas:
+---
 
-- `pandas` para manipulação de dados;
-- `scikit-learn` para modelos baseline e métricas;
-- `xgboost` para modelo gradient boosting;
-- `optuna` para fine tuning;
-- `wandb` para versionamento de artefatos e métricas;
-- `loguru` para logging;
-- `pydantic` para configuração;
-- `pytest` para testes;
-- `ruff` para lint.
-
-## Estrutura Do Projeto
+## ML Pipeline
 
 ```text
+HouseTS.csv
+  → temporal split (train / eval / holdout)
+  → preprocessing + lat/lng merge
+  → feature engineering (date features, frequency encoding, target encoding)
+  → model selection (Dummy, LinearRegression, Ridge, RandomForest, XGBoost)
+  → hyperparameter tuning (Optuna, 15 trials)
+  → REST API serving (FastAPI)
+  → Streamlit frontend
+```
+
+**Temporal validation — no data leakage:**
+
+| Split | Date range |
+|-------|------------|
+| Train | before 2020-01-01 |
+| Eval | 2020-01-01 → 2021-12-31 |
+| Holdout | from 2022-01-01 |
+
+---
+
+## Model Performance
+
+| Model | RMSE (eval) | R² (eval) |
+|-------|-------------|-----------|
+| Dummy Regressor | $375,960 | -0.09 |
+| Linear Regression | $121,635 | 0.886 |
+| Ridge | $121,638 | 0.886 |
+| Random Forest | $83,879 | 0.946 |
+| XGBoost | $73,824 | 0.958 |
+| **XGBoost + Optuna tuning** | **$69,483** | **0.963** |
+
+Optuna tuning (15 trials) reduced RMSE by **5.9%** over the baseline XGBoost.
+
+---
+
+## Stack
+
+| Layer | Technology |
+|-------|------------|
+| API | FastAPI + Uvicorn |
+| ML | XGBoost, scikit-learn, Optuna, category-encoders |
+| Experiment tracking | Weights & Biases |
+| Serving infra | AWS ECS Fargate + Application Load Balancer |
+| Artifact storage | AWS S3 |
+| Container registry | AWS ECR |
+| CI/CD | GitHub Actions — OIDC auth (no long-lived AWS credentials) |
+| Frontend | Streamlit |
+| Package manager | uv |
+| Linter | Ruff |
+| Tests | pytest + FastAPI TestClient |
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | Service info |
+| `GET` | `/health` | Liveness + artifact status |
+| `GET` | `/model-info` | Model version, source, feature schema |
+| `POST` | `/predict` | Single prediction |
+| `POST` | `/predict/batch` | Batch prediction (up to 1000 records) |
+
+Minimum required payload for `/predict`:
+
+```json
+{
+  "date": "2022-01-01",
+  "city_full": "Atlanta-Sandy Springs-Alpharetta",
+  "city": "ATL",
+  "zipcode": 30301
+}
+```
+
+All other fields (market metrics, POI counts, demographics) are optional and improve prediction quality. Missing fields are reported in `missing_features`.
+
+---
+
+## CI/CD Workflows
+
+Three independent workflows with path-based triggers — no unnecessary deploys:
+
+| Workflow | Trigger | Action |
+|----------|---------|--------|
+| `ci.yml` | every push + PR | lint, pytest, docker build (both images) |
+| `cd.yml` | push to main (src/ changes) | build → push ECR → deploy ECS API |
+| `cd-frontend.yml` | push to main (app.py / Dockerfile.streamlit) | build → push ECR → deploy ECS Frontend |
+
+AWS authentication uses **OIDC** — no AWS access keys stored in GitHub Secrets.
+
+---
+
+## Local Setup
+
+This project uses [uv](https://github.com/astral-sh/uv) for dependency management.
+
+```bash
+# Install dependencies
+uv sync
+
+# Authenticate W&B (required for pipelines that log artifacts)
+uv run wandb login
+```
+
+Expected raw dataset:
+
+```
+data/raw_data/HouseTS.csv
+```
+
+---
+
+## Running the Pipeline
+
+Run each phase independently (recommended for learning):
+
+```bash
+uv run data-pipeline        # split + preprocess → data/processed/
+uv run feature-pipeline     # feature engineering → data/processed/ + models/
+uv run training-pipeline    # train candidates, save best model → models/
+uv run tuning-pipeline      # Optuna tuning → models/xgboost_tuned_model.pkl
+uv run inference-pipeline --input data/processed/holdout.csv
+```
+
+Or run the full pipeline at once:
+
+```bash
+uv run machine-learning-pipeline
+uv run machine-learning-pipeline --include-inference   # with inference
+uv run machine-learning-pipeline --skip-data --skip-features  # skip completed stages
+```
+
+---
+
+## Running the API Locally
+
+```bash
+uv run uvicorn src.api.app:app --host 0.0.0.0 --port 8000
+```
+
+Check health:
+
+```bash
+curl http://localhost:8000/health
+```
+
+Run a prediction:
+
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"date":"2022-01-01","city_full":"Atlanta-Sandy Springs-Alpharetta","city":"ATL","zipcode":30301}'
+```
+
+---
+
+## Running with Docker
+
+```bash
+# API — requires S3 bucket with artifacts uploaded
+docker build -f Dockerfile.api -t regression-mlops-e2e-api .
+docker run --rm -p 8000:8000 \
+  -e AWS_S3_BUCKET=<your-bucket> \
+  -v ~/.aws:/root/.aws:ro \
+  regression-mlops-e2e-api
+
+# Frontend
+docker build -f Dockerfile.streamlit -t regression-mlops-e2e-frontend .
+docker run --rm -p 8501:8501 \
+  -e API_BASE_URL=http://localhost:8000 \
+  regression-mlops-e2e-frontend
+```
+
+---
+
+## Tests and Linting
+
+```bash
+uv run pytest -q
+uv run ruff check app.py src pipelines tests
+```
+
+The API test suite uses fake artifacts and FastAPI `TestClient` — no model files required to run tests.
+
+---
+
+## Project Structure
+
+```
 src/
-  config.py
+  config.py              # Pydantic-based centralized config
   logging_config.py
   data/
     load_data.py
@@ -54,331 +275,36 @@ src/
     tune_model.py
   inference/
     predict.py
+  api/
+    app.py               # FastAPI application
+    schemas.py           # Pydantic request/response models
+    service.py           # Prediction logic
+    model_loader.py      # S3 + local artifact loading
+    middleware.py        # X-Request-ID tracing
 
-pipelines/
-  data_pipeline.py
-  feature_pipeline.py
-  training_pipeline.py
-  tuning_pipeline.py
-  inference_pipeline.py
-  machine_learning_pipeline.py
-
-tests/
-docs/
-data/
-models/
-logs/
+pipelines/               # Orchestration scripts (entry points)
+tests/                   # pytest — 9 test modules
+infra/aws/               # ECS task definitions, IAM policies
+.github/workflows/       # CI + CD API + CD Frontend
 ```
 
-Regra mental:
-
-- `src/` contém código reutilizável e testável;
-- `pipelines/` contém a ordem de execução;
-- `tests/` protege o comportamento esperado;
-- `docs/` registra decisões técnicas e de negócio;
-- `data/`, `models/` e `logs/` são diretórios de artefatos locais.
-
-## Preparação Do Ambiente
-
-Este projeto usa `uv`.
-
-Instale as dependências:
-
-```bash
-uv sync
-```
-
-Configure o W&B, se ainda não estiver autenticado:
-
-```bash
-uv run wandb login
-```
-
-O dataset bruto esperado está em:
-
-```text
-data/raw_data/HouseTS.csv
-```
-
-## Como Executar Por Etapas
-
-Para estudo, o mais recomendado é executar etapa por etapa. Isso ajuda a
-entender o que cada pipeline produz e evita rodar treinamento ou tuning sem
-necessidade.
-
-### 1. Pipeline De Dados
-
-```bash
-uv run data-pipeline
-```
-
-Responsabilidades:
-
-- usa o dataset bruto registrado no W&B;
-- faz split temporal em train/eval/holdout;
-- aplica preprocessing;
-- salva arquivos em `data/processed/`;
-- registra artefatos no W&B.
-
-Arquivos esperados:
-
-```text
-data/processed/train.csv
-data/processed/eval.csv
-data/processed/holdout.csv
-data/processed/cleaning_train.csv
-data/processed/cleaning_eval.csv
-data/processed/cleaning_holdout.csv
-```
-
-### 2. Pipeline De Features
-
-```bash
-uv run feature-pipeline
-```
-
-Responsabilidades:
-
-- cria features de data;
-- aplica frequency encoding;
-- aplica target encoding usando apenas o treino;
-- salva encoders em `models/`;
-- salva datasets feature-engineered;
-- registra artefatos no W&B.
-
-Arquivos esperados:
-
-```text
-data/processed/feature_engineered_train.csv
-data/processed/feature_engineered_eval.csv
-data/processed/feature_engineered_holdout.csv
-models/zipcode_frequency_encoder.pkl
-models/city_full_target_encoder.pkl
-```
-
-### 3. Pipeline De Treinamento
-
-```bash
-uv run training-pipeline
-```
-
-Responsabilidades:
-
-- treina modelos candidatos;
-- calcula métricas em train e eval;
-- calcula gap de generalização;
-- escolhe o melhor modelo por RMSE no eval;
-- salva apenas o melhor modelo;
-- registra o melhor modelo no W&B.
-
-Modelos candidatos:
-
-- Dummy Regressor;
-- Linear Regression;
-- Ridge;
-- Random Forest;
-- XGBoost.
-
-Arquivos esperados:
-
-```text
-models/best_model.pkl
-models/metrics.json
-```
-
-### 4. Pipeline De Fine Tuning
-
-```bash
-uv run tuning-pipeline
-```
-
-Responsabilidades:
-
-- lê qual foi o melhor modelo da etapa anterior;
-- executa Optuna se o melhor modelo suportado for XGBoost;
-- salva modelo tunado;
-- salva histórico dos trials;
-- registra o modelo tunado no W&B.
-
-Arquivos esperados:
-
-```text
-models/xgboost_tuned_model.pkl
-models/tuning_metrics.json
-models/optuna_trials.csv
-```
-
-### 5. Pipeline De Inferência
-
-```bash
-uv run inference-pipeline --input data/processed/holdout.csv
-```
-
-Responsabilidades:
-
-- recebe um CSV compatível com dados raw;
-- aplica preprocessing;
-- aplica feature engineering usando encoders salvos;
-- alinha colunas com o schema de treino;
-- carrega o modelo tunado, se existir;
-- caso contrário, usa `models/best_model.pkl`;
-- salva predições.
-
-Arquivos esperados:
-
-```text
-data/processed/predictions.csv
-data/processed/inference_metrics.json
-```
-
-O arquivo de métricas só é criado se o input tiver a coluna alvo `price`.
-
-## Como Executar O Pipeline Ponta A Ponta
-
-Use o orquestrador central somente quando quiser rodar o fluxo completo.
-
-```bash
-uv run machine-learning-pipeline
-```
-
-Por padrão, esse comando executa:
-
-```text
-data_pipeline
-  -> feature_pipeline
-  -> training_pipeline
-  -> tuning_pipeline
-```
-
-Para incluir inferência no final:
-
-```bash
-uv run machine-learning-pipeline --include-inference
-```
-
-Para pular etapas já executadas:
-
-```bash
-uv run machine-learning-pipeline --skip-data --skip-features
-```
-
-Para rodar apenas tuning depois de dados, features e treino já existirem:
-
-```bash
-uv run machine-learning-pipeline \
-  --skip-data \
-  --skip-features \
-  --skip-training
-```
-
-Importante: o pipeline completo pode treinar modelos, executar tuning e registrar
-artefatos no W&B. Para estudar o projeto, prefira rodar etapa por etapa.
-
-## Logging
-
-Todos os pipelines usam Loguru.
-
-Logs são salvos em:
-
-```text
-logs/
-```
-
-O orquestrador central usa:
-
-```text
-logs/machine_learning_pipeline.log
-```
-
-Os pipelines individuais usam:
-
-```text
-logs/pipeline.log
-```
-
-## W&B
-
-O W&B é usado para versionar:
-
-- raw dataset;
-- splits processados;
-- splits limpos;
-- datasets com features;
-- encoders;
-- melhor modelo baseline;
-- modelo tunado.
-
-Antes de executar pipelines que registram artefatos, confirme que você está
-logado:
-
-```bash
-uv run wandb login
-```
-
-## Testes E Qualidade
-
-Rodar testes:
-
-```bash
-uv run pytest
-```
-
-Rodar lint:
-
-```bash
-uv run ruff check pipelines src tests
-```
-
-Esses comandos devem ser executados antes de mudanças maiores ou antes de
-preparar um deploy.
-
-## Nota Sobre Validação Temporal
-
-Este projeto usa dados com componente temporal. Por isso, validações aleatórias
-tradicionais, como `KFold` comum, podem causar vazamento temporal ao permitir
-que informações do futuro influenciem direta ou indiretamente o treinamento.
-
-Nesta versão do pipeline, usamos uma separação temporal simples:
-
-- Train: dados antes de `2020-01-01`;
-- Eval: dados de `2020-01-01` até antes de `2022-01-01`;
-- Holdout: dados a partir de `2022-01-01`.
-
-A comparação inicial de overfitting/underfitting é feita medindo métricas no
-train e no eval para cada modelo candidato, além do gap entre esses conjuntos.
-Uma estratégia mais robusta de validação temporal, como backtesting ou
-`TimeSeriesSplit` adaptado para múltiplas regiões, deve ser tratada antes de uma
-decisão final de produção.
-
-## Próximo Passo Para Deploy
-
-O próximo passo natural é transformar a inferência em um serviço.
-
-Sugestão de evolução:
-
-```text
-src/inference/predict.py
-  -> src/api/app.py
-  -> Dockerfile
-  -> AWS ECR
-  -> AWS ECS/Fargate ou SageMaker Endpoint
-```
-
-Antes do deploy, ainda é importante:
-
-- definir contrato de entrada da inferência;
-- validar schema dos dados recebidos;
-- criar uma API com FastAPI;
-- containerizar o projeto;
-- configurar CI com lint e testes;
-- decidir onde o modelo aprovado será carregado, por exemplo W&B ou S3;
-- adicionar logs e monitoramento do serviço em produção.
-
-Para este projeto como guia de estudo, uma boa próxima etapa é:
-
-```text
-FastAPI + Docker + AWS ECS/Fargate
-```
-
-Depois, o projeto pode evoluir para uma arquitetura mais especializada com
-SageMaker.
+**Mental model:**
+- `src/` — reusable, tested library code
+- `pipelines/` — execution order, entry points
+- `tests/` — protects expected behavior
+- `infra/aws/` — infrastructure-as-config
+
+---
+
+## Key Engineering Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| OIDC for AWS auth in CI/CD | No long-lived credentials in GitHub Secrets |
+| Artifacts downloaded from S3 at container startup | Immutable image, independently versioned artifacts |
+| Fake artifacts in tests | Tests run fast without needing real model files |
+| Pydantic `extra="forbid"` on request schema | Strict contract — unknown fields return 422 |
+| Path-based CI/CD triggers | Doc-only commits don't trigger ECS deploys |
+| `concurrency: cancel-in-progress` on CD | Two fast pushes don't cause a deploy race condition |
+| Temporal train/eval/holdout split | Prevents data leakage in time-series data |
+| `X-Request-ID` middleware | Every request traceable across logs |
