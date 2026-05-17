@@ -569,3 +569,99 @@ Decisão de arquitetura a tomar:
 3. Usar Streamlit em ECS privado atrás de CloudFront/ALB com HTTPS.
 
 Para estudo e simplicidade, um ALB separado é mais fácil. Para produção, o ideal é domínio, HTTPS e regras claras de roteamento.
+
+## 15. Frontend publicado na AWS
+
+O frontend Streamlit também está publicado em ECS Fargate.
+
+URL pública:
+
+```text
+http://reg-mlops-fe-alb-1328758802.us-east-1.elb.amazonaws.com
+```
+
+Health check público:
+
+```bash
+curl http://reg-mlops-fe-alb-1328758802.us-east-1.elb.amazonaws.com/_stcore/health
+```
+
+Resposta esperada:
+
+```text
+ok
+```
+
+Recursos principais:
+
+```text
+ECR repository: regression-mlops-e2e-frontend
+ECS service: regression-mlops-e2e-frontend-service
+Task family: regression-mlops-e2e-frontend
+Container name: frontend
+Container port: 8501
+CloudWatch log group: /ecs/regression-mlops-e2e-frontend
+ALB: reg-mlops-fe-alb
+Target group: reg-mlops-fe-tg
+```
+
+O frontend usa esta variável no ECS:
+
+```text
+API_BASE_URL=http://regression-mlops-e2e-alb-1975146041.us-east-1.elb.amazonaws.com
+```
+
+Assim, o navegador acessa o Streamlit pelo ALB do frontend, e o app Streamlit chama o backend FastAPI pelo ALB da API.
+
+Validar o serviço no ECS:
+
+```bash
+aws ecs describe-services \
+  --cluster ${ECS_CLUSTER} \
+  --services regression-mlops-e2e-frontend-service \
+  --region ${AWS_REGION} \
+  --query 'services[0].[desiredCount,runningCount,pendingCount,deployments[0].rolloutState,deployments[0].taskDefinition]' \
+  --output table
+```
+
+Validar target health:
+
+```bash
+aws elbv2 describe-target-health \
+  --target-group-arn arn:aws:elasticloadbalancing:us-east-1:878919573366:targetgroup/reg-mlops-fe-tg/499149f353d1d9f9 \
+  --region us-east-1 \
+  --query 'TargetHealthDescriptions[*].[Target.Id,Target.Port,TargetHealth.State,TargetHealth.Reason,TargetHealth.Description]' \
+  --output table
+```
+
+## 16. CI/CD do frontend
+
+O workflow do frontend é:
+
+```text
+.github/workflows/cd-frontend.yml
+```
+
+Ele roda quando mudam:
+
+```text
+app.py
+Dockerfile.streamlit
+.streamlit/**
+pyproject.toml
+uv.lock
+infra/aws/frontend-task-definition.cd.json
+.github/workflows/cd-frontend.yml
+```
+
+Fluxo:
+
+```text
+lint app.py
+build Dockerfile.streamlit
+assume role AWS via OIDC
+push da imagem no ECR regression-mlops-e2e-frontend
+render da task definition frontend
+update do ECS service regression-mlops-e2e-frontend-service
+espera estabilidade do serviço
+```
