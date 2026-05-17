@@ -1,0 +1,38 @@
+name: tuning
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      input_artifact:
+        description: W&B artifact name for the feature dataset (e.g. house_ts_features:latest)
+        type: string
+      input_model:
+        description: W&B artifact name for the best baseline model (e.g. house_ts_best_model:latest)
+        type: string
+      output_artifact:
+        description: Name of the W&B artifact to create for the tuned model
+        type: string
+      output_type:
+        description: W&B artifact type (e.g. model)
+        type: string
+      output_description:
+        description: Human-readable description of what this artifact contains
+        type: string
+      hydra_config:
+        description: "Hydra config override (e.g. xgboost/default or xgboost/extended)"
+        type: string
+        default: "xgboost/default"
+      pipeline_run_id:
+        description: Shared ID linking all component runs in one pipeline execution
+        type: string
+        default: ""
+    command: >-
+      python run.py
+        --input_artifact {input_artifact}
+        --input_model {input_model}
+        --output_artifact {output_artifact}
+        --output_type {output_type}
+        --output_description {output_description}
+        --pipeline_run_id {pipeline_run_id}
+        xgboost={hydra_config}
