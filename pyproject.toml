@@ -1,0 +1,51 @@
+[project]
+name = "regression-mlops-e2e"
+version = "0.1.0"
+description = "End-to-end MLOps pipeline for regression problems, covering data ingestion, validation, preprocessing, feature engineering, model training, evaluation, registry, serving, and monitoring."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "Fabio Lima", email = "lima.fisico@gmail.com" }]
+keywords = ["mlops", "machine-learning", "regression", "pipeline", "wandb", "mlflow"]
+dependencies = [
+    "boto3>=1.35",
+    "category-encoders>=2.9.0",
+    "fastapi>=0.115",
+    "loguru>=0.7.3",
+    "matplotlib>=3.10.9",
+    "numpy>=2.4.5",
+    "optuna>=4.8.0",
+    "pandas>=3.0.3",
+    "pydantic>=2.13.4",
+    "scikit-learn>=1.8.0",
+    "seaborn>=0.13.2",
+    "uvicorn[standard]>=0.34",
+    "wandb>=0.27.0",
+    "xgboost>=3.2.0",
+]
+
+[project.scripts]
+data-pipeline = "pipelines.data_pipeline:run_data_pipeline"
+feature-pipeline = "pipelines.feature_pipeline:run_feature_pipeline"
+training-pipeline = "pipelines.training_pipeline:run_training_pipeline"
+tuning-pipeline = "pipelines.tuning_pipeline:run_tuning_pipeline"
+inference-pipeline = "pipelines.inference_pipeline:main"
+machine-learning-pipeline = "pipelines.machine_learning_pipeline:main"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27",
+    "pytest>=9.0.3",
+    "ruff>=0.15.13",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "pipelines*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]

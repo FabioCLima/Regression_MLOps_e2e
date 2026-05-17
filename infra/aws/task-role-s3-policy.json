@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ListArtifactsBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListBucket"
+      ],
+      "Resource": "arn:aws:s3:::regression-mlops-e2e-artifacts-878919573366"
+    },
+    {
+      "Sid": "ReadArtifactsObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::regression-mlops-e2e-artifacts-878919573366/*"
+    }
+  ]
+}

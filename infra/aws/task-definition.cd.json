@@ -1,0 +1,47 @@
+{
+  "family": "regression-mlops-e2e-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "4096",
+  "executionRoleArn": "arn:aws:iam::878919573366:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::878919573366:role/regressionApiTaskRole",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "878919573366.dkr.ecr.us-east-1.amazonaws.com/regression-mlops-e2e-api:local-s3-tested",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "PORT", "value": "8000" },
+        { "name": "AWS_REGION", "value": "us-east-1" },
+        { "name": "AWS_S3_BUCKET", "value": "regression-mlops-e2e-artifacts-878919573366" },
+        { "name": "ARTIFACT_CACHE_DIR", "value": "/tmp/artifacts" },
+        { "name": "LOG_LEVEL", "value": "INFO" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/regression-mlops-e2e-api",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "ecs"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8000/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 120
+      }
+    }
+  ]
+}

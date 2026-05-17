@@ -1,0 +1,26 @@
+.git
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+*.pyc
+*.pyo
+*.pyd
+*.log
+logs
+wandb
+artifacts
+.agents
+.claude
+regression_mlops_e2e.egg-info
+
+# Keep runtime artifacts copied explicitly by Dockerfile.api.
+data/**
+!data/processed/
+!data/processed/feature_engineered_train.csv
+!data/raw_data/
+!data/raw_data/usmetros.csv
+
+# Documentation is useful in the repo, not in the serving image.
+docs
+tests

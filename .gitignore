@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+logs/
+wandb/
+artifacts/
+
+data/
+
+deploy.env
+models/
+regression_mlops_e2e.egg-info/
+.agents/
+.claude/
+docs/aws_access_key.md
