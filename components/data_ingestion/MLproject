@@ -1,0 +1,33 @@
+name: data_ingestion
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      raw_data:
+        description: Path to the raw housing time series CSV (HouseTS.csv)
+        type: string
+      reference_data:
+        description: Path to the geospatial reference CSV (usmetros.csv)
+        type: string
+      output_artifact:
+        description: Name of the W&B artifact to create (e.g. house_ts_raw)
+        type: string
+      output_type:
+        description: W&B artifact type (e.g. raw_dataset)
+        type: string
+      output_description:
+        description: Human-readable description of what this artifact contains
+        type: string
+      pipeline_run_id:
+        description: Shared ID linking all component runs in one pipeline execution
+        type: string
+        default: ""
+    command: >-
+      python run.py
+        --raw_data {raw_data}
+        --reference_data {reference_data}
+        --output_artifact {output_artifact}
+        --output_type {output_type}
+        --output_description {output_description}
+        --pipeline_run_id {pipeline_run_id}
