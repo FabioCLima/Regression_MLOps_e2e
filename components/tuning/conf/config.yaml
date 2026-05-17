@@ -1,0 +1,6 @@
+defaults:
+  - xgboost: default   # swap to "extended" for a wider search space
+
+tuning:
+  n_trials: 15
+  direction: minimize   # minimize RMSE
