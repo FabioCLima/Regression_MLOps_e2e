@@ -1,17 +1,16 @@
-name: CD
+name: CD Frontend
 
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - "docs/**"
-      - "README.md"
+    paths:
       - "app.py"
       - "Dockerfile.streamlit"
       - ".streamlit/**"
-      - ".github/workflows/cd-frontend.yml"
+      - "pyproject.toml"
+      - "uv.lock"
       - "infra/aws/frontend-task-definition.cd.json"
-      - "infra/aws/frontend-task-definition.json"
+      - ".github/workflows/cd-frontend.yml"
   workflow_dispatch:
 
 permissions:
@@ -19,20 +18,20 @@ permissions:
   id-token: write
 
 concurrency:
-  group: ecs-deploy-main
+  group: ecs-frontend-deploy-main
   cancel-in-progress: true
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  ECR_REPOSITORY: ${{ vars.FRONTEND_ECR_REPOSITORY }}
   ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
-  ECS_SERVICE: ${{ vars.ECS_SERVICE }}
-  ECS_TASK_DEFINITION: infra/aws/task-definition.cd.json
-  ECS_CONTAINER_NAME: api
+  ECS_SERVICE: ${{ vars.FRONTEND_ECS_SERVICE }}
+  ECS_TASK_DEFINITION: infra/aws/frontend-task-definition.cd.json
+  ECS_CONTAINER_NAME: frontend
 
 jobs:
   deploy:
-    name: Build and deploy API
+    name: Build and deploy Streamlit frontend
     runs-on: ubuntu-latest
 
     steps:
@@ -52,11 +51,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --all-groups
 
-      - name: Lint
-        run: uv run ruff check src pipelines tests
+      - name: Lint frontend
+        run: uv run ruff check app.py
 
-      - name: Test
-        run: uv run pytest -q
+      - name: Build frontend Docker image
+        run: docker build -f Dockerfile.streamlit -t regression-mlops-e2e-frontend:ci .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -68,13 +67,13 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push API image
+      - name: Build and push frontend image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -f Dockerfile.api -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
+          docker build -f Dockerfile.streamlit -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" .
           docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> "$GITHUB_OUTPUT"
 

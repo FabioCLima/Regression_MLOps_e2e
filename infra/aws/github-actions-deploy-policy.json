@@ -21,7 +21,10 @@
         "ecr:PutImage",
         "ecr:UploadLayerPart"
       ],
-      "Resource": "arn:aws:ecr:us-east-1:878919573366:repository/regression-mlops-e2e-api"
+      "Resource": [
+        "arn:aws:ecr:us-east-1:878919573366:repository/regression-mlops-e2e-api",
+        "arn:aws:ecr:us-east-1:878919573366:repository/regression-mlops-e2e-frontend"
+      ]
     },
     {
       "Sid": "DeployToEcs",
