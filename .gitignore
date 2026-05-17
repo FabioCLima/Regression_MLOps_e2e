@@ -7,7 +7,7 @@ logs/
 wandb/
 artifacts/
 
-data/
+/data/
 
 deploy.env
 models/

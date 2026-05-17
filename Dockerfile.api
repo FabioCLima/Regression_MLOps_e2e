@@ -18,11 +18,9 @@ COPY pipelines ./pipelines
 RUN pip install --no-cache-dir uv \
     && uv sync --frozen --no-dev
 
-# Local-development fallback artifacts. In AWS, prefer AWS_S3_BUCKET so the
-# container downloads versioned artifacts into ARTIFACT_CACHE_DIR at startup.
-COPY models ./models
-COPY data/processed/feature_engineered_train.csv ./data/processed/feature_engineered_train.csv
-COPY data/raw_data/usmetros.csv ./data/raw_data/usmetros.csv
+# Runtime artifacts are intentionally not baked into the image.
+# In AWS, AWS_S3_BUCKET makes the container download versioned artifacts into
+# ARTIFACT_CACHE_DIR at startup.
 
 EXPOSE 8000
 
