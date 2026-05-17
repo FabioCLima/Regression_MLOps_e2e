@@ -4,7 +4,6 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-import wandb
 from joblib import dump
 from loguru import logger
 from sklearn.dummy import DummyRegressor
@@ -33,6 +32,7 @@ def download_feature_dataset_artifact(
     artifact_name: str = f"{wandb_config.feature_engineered_dataset_artifact_name}:latest",
 ) -> Path:
     """Downloads feature-engineered splits from W&B and returns their directory."""
+    import wandb  # training-only dependency
     logger.info("Downloading feature dataset artifact from W&B: {}", artifact_name)
 
     with wandb.init(project=project_name, job_type="train_model") as run:
@@ -325,6 +325,7 @@ def register_training_artifacts(
     with metrics_path.open(encoding="utf-8") as f:
         metrics_payload = json.load(f)
 
+    import wandb  # training-only dependency
     with wandb.init(project=project_name, job_type="train_model") as run:
         for model_name, metrics in metrics_payload["metrics"].items():
             for split_name, split_metrics in metrics.items():

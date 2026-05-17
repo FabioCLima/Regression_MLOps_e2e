@@ -14,17 +14,19 @@ RUN apt-get update \
 COPY pyproject.toml uv.lock ./
 COPY src ./src
 COPY pipelines ./pipelines
+# Static reference data required for lat/lng lookup at inference time
+COPY data/raw_data/usmetros.csv ./data/raw_data/usmetros.csv
 
 RUN pip install --no-cache-dir uv \
     && uv sync --frozen --no-dev
 
-# Runtime artifacts are intentionally not baked into the image.
-# In AWS, AWS_S3_BUCKET makes the container download versioned artifacts into
-# ARTIFACT_CACHE_DIR at startup.
+# Runtime ML artifacts are not baked into the image.
+# Set AWS_S3_BUCKET to download versioned artifacts into ARTIFACT_CACHE_DIR at startup.
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD curl -fsS http://127.0.0.1:${PORT}/health || exit 1
 
-CMD ["sh", "-c", ".venv/bin/uvicorn src.api.app:app --host 0.0.0.0 --port ${PORT}"]
+# Exec form ensures uvicorn receives SIGTERM directly from ECS for graceful shutdown
+CMD ["/app/.venv/bin/uvicorn", "src.api.app:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import pandas as pd
-import wandb
 from category_encoders import TargetEncoder
 from joblib import dump
 from loguru import logger
@@ -154,6 +153,7 @@ def download_cleaned_dataset_artifact(
     artifact_name: str = f"{wandb_config.cleaned_dataset_artifact_name}:latest",
 ) -> Path:
     """Downloads the cleaned dataset artifact from W&B and returns its directory."""
+    import wandb  # training-only dependency
     logger.info("Downloading cleaned dataset artifact from W&B: {}", artifact_name)
 
     with wandb.init(project=project_name, job_type="feature_engineering") as run:
@@ -244,6 +244,7 @@ def register_feature_engineering_artifacts(
             f"Missing feature-engineered split files: {missing_engineered_files}"
         )
 
+    import wandb  # training-only dependency
     with wandb.init(project=project_name, job_type="feature_engineering") as run:
         dataset_artifact = wandb.Artifact(
             name=wandb_config.feature_engineered_dataset_artifact_name,

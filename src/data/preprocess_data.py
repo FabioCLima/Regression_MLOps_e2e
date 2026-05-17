@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-import wandb
 from loguru import logger
 
 from src.config import paths, preprocessing_config, wandb_config
@@ -166,6 +165,7 @@ def download_processed_dataset_artifact(
     artifact_name: str = f"{wandb_config.processed_dataset_artifact_name}:latest",
 ) -> Path:
     """Downloads the processed split artifact from W&B and returns its directory."""
+    import wandb  # training-only dependency
     logger.info("Downloading processed dataset artifact from W&B: {}", artifact_name)
 
     with wandb.init(project=project_name, job_type="preprocess_data") as run:
@@ -220,6 +220,7 @@ def register_cleaned_splits(
     if missing_files:
         raise FileNotFoundError(f"Missing cleaned split files: {missing_files}")
 
+    import wandb  # training-only dependency
     logger.info("Registering cleaned data splits in W&B: {}", output_dir)
 
     with wandb.init(project=project_name, job_type="preprocess_data") as run:

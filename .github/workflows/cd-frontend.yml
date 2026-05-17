@@ -7,10 +7,7 @@ on:
       - "app.py"
       - "Dockerfile.streamlit"
       - ".streamlit/**"
-      - "pyproject.toml"
-      - "uv.lock"
       - "infra/aws/frontend-task-definition.cd.json"
-      - ".github/workflows/cd-frontend.yml"
   workflow_dispatch:
 
 permissions:
@@ -53,9 +50,6 @@ jobs:
 
       - name: Lint frontend
         run: uv run ruff check app.py
-
-      - name: Build frontend Docker image
-        run: docker build -f Dockerfile.streamlit -t regression-mlops-e2e-frontend:ci .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
