@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regression MLOps E2E — Architecture</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1117; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px 24px 60px; min-height: 100vh; }
+
+  .page-title {
+    text-align: center;
+    margin-bottom: 8px;
+  }
+  .page-title h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #e6edf3;
+    letter-spacing: -0.3px;
+  }
+  .page-title p {
+    font-size: 13px;
+    color: #7d8590;
+    margin-top: 6px;
+  }
+  .badges {
+    display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;
+    margin: 14px 0 36px;
+  }
+  .badge {
+    font-size: 11px; font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid;
+  }
+  .badge-blue  { color: #79c0ff; border-color: #1f6feb; background: #0d2042; }
+  .badge-green { color: #56d364; border-color: #196127; background: #0b2a14; }
+  .badge-amber { color: #e3b341; border-color: #9e6a03; background: #251d04; }
+  .badge-purple{ color: #bc8cff; border-color: #6e40c9; background: #1a0f32; }
+  .badge-teal  { color: #39d353; border-color: #196127; background: #0b2a14; }
+
+  .diagram {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+
+  /* ---- LANE CONTAINERS ---- */
+  .lane {
+    border: 1px solid;
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+  }
+  .lane-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .lane-label .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .lane-ml   { border-color: #1f6feb44; background: #0d2042aa; }
+  .lane-ml .lane-label   { color: #79c0ff; }
+  .lane-ml .dot          { background: #79c0ff; }
+
+  .lane-cicd { border-color: #6e40c944; background: #1a0f3288; }
+  .lane-cicd .lane-label { color: #bc8cff; }
+  .lane-cicd .dot        { background: #bc8cff; }
+
+  .lane-aws  { border-color: #9e6a0344; background: #25160488; }
+  .lane-aws .lane-label  { color: #e3b341; }
+  .lane-aws .dot         { background: #e3b341; }
+
+  /* ---- BOXES ---- */
+  .box {
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border: 1px solid;
+    position: relative;
+  }
+  .box:last-child { margin-bottom: 0; }
+
+  .box-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .box-sub {
+    font-size: 11px;
+    color: #7d8590;
+    line-height: 1.5;
+  }
+  .box-tags {
+    display: flex; flex-wrap: wrap; gap: 4px; margin-top: 7px;
+  }
+  .tag {
+    font-size: 10px; font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+
+  /* box color variants */
+  .box-blue  { background: #0d2042; border-color: #1f6feb66; }
+  .box-blue .box-title  { color: #79c0ff; }
+  .box-blue  .tag { color: #79c0ff; border-color: #1f6feb; background: #05122a; }
+
+  .box-green { background: #0b2a14; border-color: #19612766; }
+  .box-green .box-title { color: #56d364; }
+  .box-green .tag { color: #56d364; border-color: #196127; background: #061908; }
+
+  .box-amber { background: #251d04; border-color: #9e6a0366; }
+  .box-amber .box-title { color: #e3b341; }
+  .box-amber .tag { color: #e3b341; border-color: #9e6a03; background: #180e00; }
+
+  .box-purple { background: #1a0f32; border-color: #6e40c966; }
+  .box-purple .box-title { color: #bc8cff; }
+  .box-purple .tag { color: #bc8cff; border-color: #6e40c9; background: #0f0820; }
+
+  .box-coral { background: #2a0d0d; border-color: #b9254566; }
+  .box-coral .box-title { color: #ff7b72; }
+  .box-coral .tag { color: #ff7b72; border-color: #b92545; background: #1a0608; }
+
+  .box-teal  { background: #041c1c; border-color: #1a7f6466; }
+  .box-teal  .box-title { color: #2dd4bf; }
+  .box-teal  .tag { color: #2dd4bf; border-color: #1a7f64; background: #021212; }
+
+  /* ---- ARROWS between lanes ---- */
+  .connector-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 4px 0 0;
+  }
+  .arr-line {
+    flex: 1;
+    height: 1px;
+    background: #30363d;
+    position: relative;
+  }
+  .arr-label {
+    font-size: 10px;
+    color: #7d8590;
+    padding: 3px 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  /* ---- FULL-WIDTH SECTIONS ---- */
+  .full-row {
+    grid-column: 1 / -1;
+  }
+
+  .section-header {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: #7d8590;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #21262d;
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+
+  /* pipeline chain */
+  .pipe-chain {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+  }
+  .pipe-box {
+    flex: 1;
+    border-radius: 8px;
+    padding: 9px 10px;
+    border: 1px solid #1f6feb44;
+    background: #0d2042;
+    text-align: center;
+    min-width: 120px;
+  }
+  .pipe-box .pb-title { font-size: 11px; font-weight: 600; color: #79c0ff; }
+  .pipe-box .pb-sub   { font-size: 10px; color: #7d8590; margin-top: 2px; }
+  .pipe-arrow {
+    flex-shrink: 0;
+    color: #30363d;
+    font-size: 16px;
+    padding: 0 4px;
+  }
+
+  /* perf table */
+  .perf-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .perf-table th { color: #7d8590; font-weight: 500; text-align: left; padding: 5px 8px; border-bottom: 1px solid #21262d; }
+  .perf-table td { color: #c9d1d9; padding: 5px 8px; border-bottom: 1px solid #161b22; }
+  .perf-table tr.best td { color: #56d364; font-weight: 600; }
+  .perf-table tr.best td:first-child::before { content: '★ '; }
+
+  /* endpoint pills */
+  .ep-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ep { font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px; border: 1px solid; }
+  .ep-get  { color: #2dd4bf; border-color: #1a7f64; background: #041c1c; }
+  .ep-post { color: #f97316; border-color: #9a3412; background: #1a0800; }
+
+  /* security group note */
+  .alert {
+    background: #2d1b00;
+    border: 1px solid #9e6a03;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: #e3b341;
+    line-height: 1.6;
+    margin-top: 10px;
+  }
+  .alert strong { font-weight: 600; }
+
+  /* legend */
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    margin-top: 6px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #7d8590; }
+  .legend-dot  { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* vertical flow arrow inside a lane */
+  .v-arr {
+    text-align: center;
+    color: #30363d;
+    font-size: 14px;
+    line-height: 1;
+    margin: 4px 0;
+  }
+
+  /* holdout callout */
+  .holdout-badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #1a0f32;
+    border: 1px solid #6e40c9;
+    color: #bc8cff;
+    margin-left: 6px;
+  }
+  .missing-badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #2d1b00;
+    border: 1px dashed #9e6a03;
+    color: #e3b341;
+    margin-left: 6px;
+  }
+
+  .divider {
+    grid-column: 1 / -1;
+    height: 1px;
+    background: #21262d;
+    margin: 8px 0;
+  }
+
+  @media (max-width: 700px) {
+    .diagram { grid-template-columns: 1fr; }
+    .grid-3, .grid-4 { grid-template-columns: 1fr 1fr; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .lane { margin-bottom: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>Regression MLOps E2E — Architecture</h1>
+  <p>US Real Estate Price Prediction · FastAPI · Streamlit · AWS ECS Fargate · GitHub Actions CI/CD</p>
+</div>
+
+<div class="badges">
+  <span class="badge badge-blue">Python 3.13</span>
+  <span class="badge badge-green">XGBoost + Optuna</span>
+  <span class="badge badge-amber">AWS ECS Fargate</span>
+  <span class="badge badge-purple">W&amp;B Tracking</span>
+  <span class="badge badge-blue">GitHub Actions OIDC</span>
+  <span class="badge badge-green">pytest · Ruff · uv</span>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<!--  ROW 1: ML PIPELINE (full width)           -->
+<!-- ═══════════════════════════════════════════ -->
+<div class="diagram">
+
+  <div class="full-row">
+    <div class="section-header">ML pipeline — local training (CRISP-DM)</div>
+    <div class="pipe-chain">
+      <div class="pipe-box">
+        <div class="pb-title">data-pipeline</div>
+        <div class="pb-sub">temporal split<br>train / eval / holdout</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-box">
+        <div class="pb-title">feature-pipeline</div>
+        <div class="pb-sub">date feats · freq enc<br>target encoding</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-box">
+        <div class="pb-title">training-pipeline</div>
+        <div class="pb-sub">Dummy → LR → Ridge<br>RF → XGBoost</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-box">
+        <div class="pb-title">tuning-pipeline</div>
+        <div class="pb-sub">Optuna · 15 trials<br>RMSE $69,483 · R² 0.963</div>
+      </div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-box" style="border-color:#6e40c944; background:#1a0f32;">
+        <div class="pb-title" style="color:#bc8cff;">inference-pipeline</div>
+        <div class="pb-sub">holdout eval<span class="missing-badge">validado</span></div>
+      </div>
+    </div>
+
+    <!-- temporal split info -->
+    <div style="display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;">
+      <div class="box box-blue" style="flex:1; margin-bottom:0;">
+        <div class="box-title">Temporal split — no data leakage</div>
+        <div class="box-sub">
+          Train: before 2020-01-01 &nbsp;·&nbsp;
+          Eval: 2020 → 2021 &nbsp;·&nbsp;
+          Holdout: from 2022-01-01
+          <span class="holdout-badge">holdout validado — RMSE $124,618 · R² 0.915</span>
+        </div>
+      </div>
+      <div class="box box-purple" style="flex:0 0 220px; margin-bottom:0;">
+        <div class="box-title">W&amp;B Experiment Tracking</div>
+        <div class="box-sub">metrics · artifact versions<br>cada trial logado automaticamente</div>
+        <div class="box-tags">
+          <span class="tag">wandb.log_metric()</span>
+          <span class="tag">Model Registry</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── connector ── -->
+  <div class="full-row" style="display:flex;align-items:center;gap:0;padding:6px 0;">
+    <div class="arr-line"></div>
+    <span class="arr-label">artifacts → S3 · git push → GitHub Actions triggers</span>
+    <div class="arr-line"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  ROW 2: THREE LANES side by side           -->
+  <!-- ═══════════════════════════════════════════ -->
+
+  <!-- LANE 1: GitHub Actions CI/CD -->
+  <div class="lane lane-cicd">
+    <div class="lane-label"><span class="dot"></span>GitHub Actions CI/CD</div>
+
+    <div class="box box-purple">
+      <div class="box-title">ci.yml</div>
+      <div class="box-sub">every push + PR</div>
+      <div class="box-tags">
+        <span class="tag">ruff check</span>
+        <span class="tag">pytest</span>
+        <span class="tag">docker build</span>
+      </div>
+    </div>
+
+    <div class="v-arr">↓</div>
+
+    <div class="box box-purple">
+      <div class="box-title">cd.yml</div>
+      <div class="box-sub">push to main · src/ changes</div>
+      <div class="box-tags">
+        <span class="tag">ECR push API</span>
+        <span class="tag">ECS deploy</span>
+      </div>
+    </div>
+
+    <div class="v-arr">↓</div>
+
+    <div class="box box-purple">
+      <div class="box-title">cd-frontend.yml</div>
+      <div class="box-sub">push to main · app.py changes</div>
+      <div class="box-tags">
+        <span class="tag">ECR push UI</span>
+        <span class="tag">ECS deploy</span>
+      </div>
+    </div>
+
+    <div style="margin-top:10px; font-size:10px; color:#7d8590; line-height:1.6; border-top:1px solid #21262d; padding-top:8px;">
+      <strong style="color:#bc8cff;">OIDC auth</strong> — sem AWS credentials<br>no GitHub Secrets.<br>
+      <strong style="color:#bc8cff;">Path triggers</strong> — commits de doc não disparam deploy.<br>
+      <strong style="color:#bc8cff;">concurrency: cancel-in-progress</strong> — evita race conditions.
+    </div>
+  </div>
+
+  <!-- LANE 2: AWS Storage & Registry -->
+  <div class="lane lane-aws">
+    <div class="lane-label"><span class="dot"></span>AWS Storage &amp; Registry</div>
+
+    <div class="box box-amber">
+      <div class="box-title">AWS S3</div>
+      <div class="box-sub">Artifact store · versioned</div>
+      <div class="box-tags">
+        <span class="tag">models/xgboost_tuned_model.pkl</span>
+        <span class="tag">data/processed/</span>
+        <span class="tag">feature schema</span>
+      </div>
+    </div>
+
+    <div class="v-arr">↑ upload &nbsp;&nbsp;&nbsp;&nbsp; ↓ download at startup</div>
+
+    <div class="box box-amber">
+      <div class="box-title">AWS ECR</div>
+      <div class="box-sub">Container Registry</div>
+      <div class="box-tags">
+        <span class="tag">api image</span>
+        <span class="tag">frontend image</span>
+      </div>
+    </div>
+
+    <div class="v-arr">↓</div>
+
+    <div class="box box-amber">
+      <div class="box-title">ECS Fargate</div>
+      <div class="box-sub">Serverless containers<br>us-east-1</div>
+      <div class="box-tags">
+        <span class="tag">FastAPI :8000</span>
+        <span class="tag">Streamlit :8501</span>
+      </div>
+    </div>
+
+    <div class="alert">
+      <strong>⚠ API inacessível?</strong><br>
+      Checar security group da task API — porta 8000 precisa estar liberada para o ALB.<br>
+      <code style="font-size:10px;">curl .../health → 502 = target group unhealthy</code>
+    </div>
+  </div>
+
+  <!-- LANE 3: Serving & Users -->
+  <div class="lane lane-ml" style="border-color:#1a7f6444; background:#041c1c88;">
+    <div class="lane-label" style="color:#2dd4bf;"><span class="dot" style="background:#2dd4bf;"></span>Serving &amp; Users</div>
+
+    <div class="box box-teal">
+      <div class="box-title">ALB — API</div>
+      <div class="box-sub">Application Load Balancer<br>regression-mlops-e2e-alb-*</div>
+      <div class="box-tags"><span class="tag">:80 → FastAPI :8000</span></div>
+    </div>
+
+    <div class="v-arr">↕</div>
+
+    <div class="box box-teal">
+      <div class="box-title">FastAPI · /docs</div>
+      <div class="box-sub">Artifacts carregados do S3 no startup<br>X-Request-ID middleware · Pydantic strict</div>
+      <div class="box-tags">
+        <span class="tag">model_loader.py</span>
+        <span class="tag">schemas.py</span>
+        <span class="tag">service.py</span>
+      </div>
+    </div>
+
+    <div class="v-arr">↕</div>
+
+    <div class="box box-teal">
+      <div class="box-title">ALB — Frontend</div>
+      <div class="box-sub">reg-mlops-fe-alb-*<br>entrada dos usuários</div>
+      <div class="box-tags"><span class="tag">:80 → Streamlit :8501</span></div>
+    </div>
+
+    <div class="v-arr">↓</div>
+
+    <div class="box box-teal">
+      <div class="box-title">Streamlit</div>
+      <div class="box-sub">UI — POST /predict → ALB API</div>
+    </div>
+
+    <div class="v-arr">↓</div>
+
+    <div class="box box-green" style="margin-bottom:0;">
+      <div class="box-title">Users &amp; Developers</div>
+      <div class="box-sub">Users → Streamlit<br>Devs → /docs (Swagger)</div>
+    </div>
+  </div>
+
+  <!-- ── divider ── -->
+  <div class="divider"></div>
+
+  <!-- ═══════════════════════════════════════════ -->
+  <!--  ROW 3: API endpoints + model perf        -->
+  <!-- ═══════════════════════════════════════════ -->
+
+  <div class="full-row">
+    <div class="section-header">API endpoints</div>
+    <div class="ep-row">
+      <span class="ep ep-get">GET /</span>
+      <span class="ep ep-get">GET /health</span>
+      <span class="ep ep-get">GET /model-info</span>
+      <span class="ep ep-post">POST /predict</span>
+      <span class="ep ep-post">POST /predict/batch</span>
+    </div>
+  </div>
+
+  <div class="full-row">
+    <div class="section-header">Model performance — eval set (2020–2021)</div>
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>RMSE (eval)</th>
+          <th>R² (eval)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Dummy Regressor</td><td>$375,960</td><td>-0.09</td></tr>
+        <tr><td>Linear Regression</td><td>$121,635</td><td>0.886</td></tr>
+        <tr><td>Ridge</td><td>$121,638</td><td>0.886</td></tr>
+        <tr><td>Random Forest</td><td>$83,879</td><td>0.946</td></tr>
+        <tr><td>XGBoost (baseline)</td><td>$73,824</td><td>0.958</td></tr>
+        <tr class="best"><td>XGBoost + Optuna (15 trials)</td><td>$69,483</td><td>0.963</td></tr>
+        <tr><td style="color:#e3b341; font-style:italic;">Holdout 2022–2023</td><td style="color:#e3b341;">$124,618</td><td style="color:#e3b341;">0.915</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── legend ── -->
+  <div class="full-row" style="margin-top:8px;">
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#79c0ff;"></span>ML pipeline</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#bc8cff;"></span>CI/CD (GitHub Actions)</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#e3b341;"></span>AWS infra</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#2dd4bf;"></span>Serving layer</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#56d364;"></span>Users</div>
+      <div class="legend-item" style="font-size:11px; color:#e3b341;">holdout = validation + drift baseline</div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

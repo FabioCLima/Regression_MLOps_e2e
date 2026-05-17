@@ -304,3 +304,57 @@ runningCount = 0
 Mesmo com ECS services parados, os ALBs continuam cobrando. Para uma pausa longa, considere destruir os ALBs e recriá-los depois pelo roteiro de deploy.
 
 Para uma demo curta de um dia, manter os ALBs e parar as tasks à noite é um bom equilíbrio entre simplicidade e controle de custo.
+
+## Modo portfólio sob demanda
+
+Use este modo quando o projeto não precisa ficar público todos os dias.
+
+### Pausa rápida
+
+Para parar somente as tasks ECS e manter os ALBs prontos:
+
+```bash
+scripts/aws_stop_services.sh
+```
+
+Esse modo reduz custo de Fargate, mas os ALBs continuam cobrando.
+
+### Hibernação de baixo custo
+
+Para remover os ECS services, ALBs e target groups da demo:
+
+```bash
+DEMO_TEARDOWN_CONFIRM=delete-demo-infra scripts/aws_teardown_demo_infra.sh
+```
+
+Esse modo mantém:
+
+```text
+S3 com artifacts
+ECR com imagens Docker
+Task definitions
+IAM roles
+CloudWatch logs
+Budget
+```
+
+Ele remove os recursos de exposição pública que geram custo fixo parado.
+
+### Recriar demo pública
+
+Quando um recrutador ou avaliador pedir acesso:
+
+```bash
+scripts/aws_recreate_demo_infra.sh
+scripts/aws_status.sh
+```
+
+O script recria backend e frontend, grava os novos ARNs/DNS em `deploy.runtime.env` e imprime as novas URLs públicas.
+
+Depois da demonstração:
+
+```bash
+DEMO_TEARDOWN_CONFIRM=delete-demo-infra scripts/aws_teardown_demo_infra.sh
+```
+
+Observação: as URLs dos ALBs podem mudar a cada recriação. Use sempre a URL impressa pelo script mais recente.

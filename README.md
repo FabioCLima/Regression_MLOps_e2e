@@ -19,53 +19,17 @@ Covers every phase from raw data to production serving on AWS, with automated CI
 
 ## Architecture
 
-```mermaid
-graph TB
-    subgraph ML_Pipeline["ML Pipeline (local)"]
-        RAW[HouseTS.csv] --> DP[data-pipeline]
-        DP --> FP[feature-pipeline]
-        FP --> TP[training-pipeline]
-        TP --> TUN[tuning-pipeline]
-    end
+[![Regression MLOps E2E architecture](docs/assets/architecture_regression_mlops_e2e.png)](architecture_regression_mlops_e2e.html)
 
-    subgraph Tracking["W&B Experiment Tracking"]
-        WB[Metrics + Artifact versions]
-    end
+The visual architecture highlights the production path recruiters usually care about first:
 
-    subgraph Storage["AWS S3"]
-        S3[models/ + data/processed/]
-    end
+- Local ML pipeline with temporal train/eval/holdout validation.
+- W&B experiment tracking and artifact lineage.
+- S3/ECR-backed model serving on AWS ECS Fargate.
+- GitHub Actions CI/CD with OIDC authentication.
+- FastAPI + Streamlit serving through public Application Load Balancers.
 
-    TUN -->|log metrics| Tracking
-    TUN -->|upload artifacts| Storage
-
-    subgraph CICD["GitHub Actions"]
-        CI_W[CI: lint + test + docker build]
-        CD_API_W[CD API: ECR push → ECS deploy]
-        CD_FE_W[CD Frontend: ECR push → ECS deploy]
-    end
-
-    subgraph AWS["AWS us-east-1"]
-        ECR_A[ECR: api image]
-        ECR_F[ECR: frontend image]
-        ALB_A[ALB :80]
-        ALB_F[ALB :80]
-        subgraph Fargate["ECS Fargate"]
-            API[FastAPI :8000]
-            FE[Streamlit :8501]
-        end
-        API -->|startup download| Storage
-    end
-
-    CD_API_W --> ECR_A --> API
-    CD_FE_W --> ECR_F --> FE
-    ALB_A --> API
-    ALB_F --> FE
-    FE -->|POST /predict| ALB_A
-
-    USER[User] --> ALB_F
-    DEV[Developer] --> ALB_A
-```
+Open the full HTML version: [architecture_regression_mlops_e2e.html](architecture_regression_mlops_e2e.html)
 
 ---
 

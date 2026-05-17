@@ -10,6 +10,7 @@ artifacts/
 /data/
 
 deploy.env
+deploy.runtime.env
 models/
 regression_mlops_e2e.egg-info/
 .agents/
