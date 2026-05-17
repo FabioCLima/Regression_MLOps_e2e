@@ -1,0 +1,39 @@
+name: preprocessing
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      input_artifact:
+        description: W&B artifact name for the raw dataset (e.g. house_ts_raw:latest)
+        type: string
+      output_artifact:
+        description: Name of the W&B artifact to create for cleaned splits
+        type: string
+      output_type:
+        description: W&B artifact type (e.g. cleaned_dataset)
+        type: string
+      output_description:
+        description: Human-readable description of what this artifact contains
+        type: string
+      eval_start_date:
+        description: "Temporal boundary: first date of the eval split (YYYY-MM-DD)"
+        type: string
+        default: "2020-01-01"
+      holdout_start_date:
+        description: "Temporal boundary: first date of the holdout split (YYYY-MM-DD)"
+        type: string
+        default: "2022-01-01"
+      pipeline_run_id:
+        description: Shared ID linking all component runs in one pipeline execution
+        type: string
+        default: ""
+    command: >-
+      python run.py
+        --input_artifact {input_artifact}
+        --output_artifact {output_artifact}
+        --output_type {output_type}
+        --output_description {output_description}
+        --eval_start_date {eval_start_date}
+        --holdout_start_date {holdout_start_date}
+        --pipeline_run_id {pipeline_run_id}
