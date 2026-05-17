@@ -12,6 +12,10 @@ on:
       - ".github/workflows/cd-frontend.yml"
       - "infra/aws/frontend-task-definition.cd.json"
       - "infra/aws/frontend-task-definition.json"
+      - "infra/aws/scheduler-*.json"
+      - "infra/aws/budget-*.json"
+      - "infra/aws/ecr-lifecycle-keep-last-5.json"
+      - "scripts/**"
   workflow_dispatch:
 
 permissions:

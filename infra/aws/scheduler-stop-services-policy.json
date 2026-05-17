@@ -1,0 +1,16 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "StopRegressionMLOpsServices",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:UpdateService"
+      ],
+      "Resource": [
+        "arn:aws:ecs:us-east-1:878919573366:service/regression-mlops-e2e-cluster/regression-mlops-e2e-service",
+        "arn:aws:ecs:us-east-1:878919573366:service/regression-mlops-e2e-cluster/regression-mlops-e2e-frontend-service"
+      ]
+    }
+  ]
+}
