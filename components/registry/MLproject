@@ -1,0 +1,26 @@
+name: registry
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    parameters:
+      input_model:
+        description: W&B artifact name for the tuned model (e.g. house_ts_tuned_model:latest)
+        type: string
+      model_name:
+        description: Name to register the model under in the MLflow Model Registry
+        type: string
+      stage:
+        description: "MLflow stage to transition to: Staging, Production, or Archived"
+        type: string
+        default: "Staging"
+      pipeline_run_id:
+        description: Shared ID linking all component runs in one pipeline execution
+        type: string
+        default: ""
+    command: >-
+      python run.py
+        --input_model {input_model}
+        --model_name {model_name}
+        --stage {stage}
+        --pipeline_run_id {pipeline_run_id}
